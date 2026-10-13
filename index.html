@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>CIRCUIT</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --bleu:#1f4e79; --vert:#2e7d32; --rouge:#c62828; --gris:#f4f6f8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, Arial, sans-serif; background:var(--gris); color:#222; padding-top: env(safe-area-inset-top, 0px); padding-bottom: 80px; }
+  header { background:var(--bleu); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { margin:0; font-size:18px; }
+  header button { background:#fff; color:var(--bleu); padding:8px 12px; }
+  main { padding:12px; max-width:640px; margin:auto; }
+  section { background:#fff; border-radius:10px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h2 { font-size:16px; margin:0 0 10px; color:var(--bleu); }
+  label { display:block; font-size:13px; margin:8px 0 3px; color:#555; }
+  input, select, textarea { width:100%; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:8px; background:#fff; }
+  textarea { resize:vertical; min-height:50px; }
+  button { padding:10px 14px; font-size:15px; border:0; border-radius:8px; color:#fff; background:var(--bleu); cursor:pointer; }
+  button.secondaire { background:#607d8b; }
+  button.danger { background:var(--rouge); }
+  button.ok { background:var(--vert); }
+  .btn-bloc { width:100%; margin-top:12px; }
+  .carte { border:1px solid #e0e0e0; border-radius:8px; padding:10px; margin-bottom:10px; }
+  .titre { font-weight:bold; }
+  .meta { font-size:13px; color:#666; margin:3px 0; }
+  .badge { display:inline-block; font-size:12px; padding:3px 8px; border-radius:12px; margin:4px 4px 4px 0; }
+  .badge.etape { background:#e3f2fd; color:var(--bleu); }
+  .badge.mvt { background:#fff3e0; color:#8a4b00; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .vide { text-align:center; color:#888; padding:20px; }
+  .tableau { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .tuile { background:#f7fbff; border:1px solid #cfe2f3; border-radius:8px; padding:10px 6px; text-align:center; cursor:pointer; color:var(--bleu); }
+  .tuile.actif { background:var(--bleu); color:#fff; }
+  .tuile b { display:block; font-size:22px; }
+  .tuile span { font-size:12px; }
+  .total { display:flex; gap:8px; margin-bottom:12px; }
+  .total div { flex:1; background:#fff; border-radius:8px; padding:10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .total b { display:block; font-size:20px; color:var(--bleu); }
+  .total span { font-size:12px; color:#666; }
+  .filtres { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .flottant { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:20; box-shadow:0 3px 8px rgba(0,0,0,.25); border-radius:24px; padding:12px 22px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 CIRCUIT</h1>
+  <button onclick="nouveau()">+ Nouveau</button>
+</header>
+
+<main>
+  <div class="total">
+    <div><b id="stat-total">0</b><span>Total</span></div>
+    <div><b id="stat-cours">0</b><span>En cours</span></div>
+    <div><b id="stat-ce">0</b><span>Terminés (CE)</span></div>
+  </div>
+
+  <section>
+    <h2>Tableau de bord par étape</h2>
+    <div class="tableau" id="tableau"></div>
+  </section>
+
+  <section>
+    <h2 id="titre-form">Nouveau dossier</h2>
+    <form id="form" autocomplete="off">
+      <input type="hidden" id="id">
+      <label for="im">IM *</label>
+      <input id="im" required inputmode="numeric">
+      <label for="nom">Nom et prénom *</label>
+      <input id="nom" required>
+      <label for="situation">Situation actuelle</label>
+      <input id="situation" placeholder="ex : Encadreurs 1C1E">
+      <label for="mouvement">Mouvement *</label>
+      <select id="mouvement" required></select>
+      <label for="nouvelle">Nouvelle situation</label>
+      <input id="nouvelle" placeholder="ex : 1C2E">
+      <label for="effet">Date d'effet</label>
+      <input type="date" id="effet">
+      <label for="etape">Dossier en cours *</label>
+      <select id="etape" required></select>
+      <label for="dateEtape">Date d'entrée dans cette étape</label>
+      <input type="date" id="dateEtape">
+      <label for="ce">Date CE</label>
+      <input type="date" id="ce">
+      <label for="obs">Observations</label>
+      <textarea id="obs"></textarea>
+      <button type="submit" class="btn-bloc" id="btn-enregistrer">Enregistrer</button>
+      <button type="button" class="btn-bloc secondaire" id="btn-annuler" hidden>Annuler</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Liste des dossiers</h2>
+    <input id="recherche" placeholder="Rechercher par nom ou IM">
+    <div class="filtres">
+      <select id="filtre-etape"></select>
+      <select id="filtre-mvt"></select>
+    </div>
+    <div id="liste" style="margin-top:10px"></div>
+  </section>
+</main>
+
+<button class="flottant" onclick="nouveau()">+ Dossier vaovao</button>
+
+<script>
+const MOUVEMENTS = [
+  "Avancement Échelon", "Avancement Classe", "Avenant", "Intégration",
+  "Titularisation", "Renouv Contrat", "Avenant+Contrat", "Installation",
+  "Congé non pris", "Annulation"
+];
+// Ordre de travail du dossier
+const ETAPES = ["Préparation en cours", "BAAF", "FOP TANA", "FOP VAK", "VISA", "PREFET", "SOLD", "CF", "CE"];
+const ETAPE_FINALE = "CE";
+const CLE = "avancements_srb_v2";
+const ANCIENNE_CLE = "avancements_srb_v1";
+
+// Données de départ extraites du document "Avancements des agents du SRB en cours de traitement"
+const DEPART = [
+  { im:"282335", nom:"IHAJANIAINA Bruno R.", situation:"Employés de Service 1C3E", mouvement:"Avancement Classe", nouvelle:"PR1E", effet:"2026-03-10", etape:"PREFET", ce:"2026-10-06", obs:"Pour signature BIN" },
+  { im:"321134", nom:"RAMANANTSOA Hobimianona Hazaniaina", situation:"Réalisateurs Adjoints 1C3E", mouvement:"Avancement Classe", nouvelle:"PR1E", effet:"2025-11-12", etape:"SOLD", ce:"2026-09-24", obs:"Mandatement" },
+  { im:"323390", nom:"RAKOTOROALAHY Lalaina", situation:"Encadreurs 1C1E", mouvement:"Avancement Échelon", nouvelle:"1C2E", effet:"2026-04-08", etape:"FOP VAK", ce:"2026-09-03", obs:"Pour ampliation" },
+  { im:"349633", nom:"RASENDRASOA Felana Fanjaniaina", situation:"Encadreurs A45E", mouvement:"Intégration", nouvelle:"STOE IND500", effet:"", etape:"FOP VAK", ce:"2026-09-30", obs:"Vérification et validation" },
+  { im:"351473", nom:"RAHERILALAINA Fanjarisoa Philippine", situation:"Encadreurs A46E", mouvement:"Intégration", nouvelle:"", effet:"", etape:"FOP TANA", ce:"2026-10-05", obs:"" },
+  { im:"354818", nom:"RAMANAMIASY Hery Lalaina", situation:"Encadreurs 2C3E", mouvement:"Avancement Classe", nouvelle:"1C1E", effet:"2025-12-27", etape:"SOLD", ce:"2026-09-24", obs:"Mandatement" },
+  { im:"375215", nom:"RAMIANDRISOA Lala Nomenjanahary", situation:"Realisateurs 1C2E", mouvement:"Intégration", nouvelle:"", effet:"", etape:"FOP TANA", ce:"", obs:"" },
+  { im:"376911", nom:"HANITRIVONY RAHERIVOLOLONA Miajatiana", situation:"2C2E", mouvement:"Avancement Échelon", nouvelle:"2C3E", effet:"2026-09-11", etape:"SOLD", ce:"", obs:"Mandatement" },
+  { im:"408337", nom:"RAKOTONIAINA Ronjo Myriam", situation:"2C2E", mouvement:"Intégration", nouvelle:"", effet:"", etape:"FOP TANA", ce:"2026-10-05", obs:"" },
+  { im:"437166", nom:"MILAVONJY Naivo Josia", situation:"2C1E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"SOLD", ce:"", obs:"Mandatement" },
+  { im:"437877", nom:"SOAHARIMANANA Rova Nathalie", situation:"2C2E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"PREFET", ce:"", obs:"" },
+  { im:"492086", nom:"RANDRIANARISON Elodie Nirina D.", situation:"Concepteurs 2C1E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"VISA", ce:"2026-10-06", obs:"VISA SRSP" },
+  { im:"493761", nom:"RAKOTONJANAHARY Andrianiaina", situation:"Concepteurs 2C1E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"BAAF", ce:"", obs:"" },
+  { im:"494059", nom:"RAZAFIMANDIMBY Maminirina Christine", situation:"Concepteurs 2C1E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"BAAF", ce:"", obs:"" },
+  { im:"431434", nom:"HAINGONIRINA Abelson Véronique", situation:"Concepteurs 2C1E", mouvement:"Renouv Contrat", nouvelle:"", effet:"", etape:"BAAF", ce:"", obs:"" },
+  { im:"330081", nom:"RADIMBIARISOA Rojo Haingo", situation:"Technicien supérieurs 2C2E", mouvement:"Avenant", nouvelle:"2C3E", effet:"2026-08-26", etape:"Préparation en cours", ce:"", obs:"" }
+];
+
+// Anciennes étapes -> nouvelles étapes
+const RENOMMAGE = { "Préparation": "Préparation en cours" };
+
+let dossiers = [];
+const $ = id => document.getElementById(id);
+const echapper = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function aujourdhui() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+function fr(iso) {
+  if (!iso) return "—";
+  const [a, m, j] = iso.split("-");
+  return `${j}/${m}/${a}`;
+}
+
+function normaliser(d) {
+  if (RENOMMAGE[d.etape]) d.etape = RENOMMAGE[d.etape];
+  if (!ETAPES.includes(d.etape)) d.etape = ETAPES[0];
+  if (!d.dateEtape) d.dateEtape = "";
+  return d;
+}
+
+function charger() {
+  try {
+    const s = localStorage.getItem(CLE) || localStorage.getItem(ANCIENNE_CLE);
+    dossiers = s ? JSON.parse(s) : DEPART.map((d, i) => ({ ...d, id: "d" + i }));
+  } catch (e) {
+    dossiers = DEPART.map((d, i) => ({ ...d, id: "d" + i }));
+  }
+  dossiers = dossiers.map(normaliser);
+}
+function sauver() {
+  try { localStorage.setItem(CLE, JSON.stringify(dossiers)); }
+  catch (e) { alert("Impossible d'enregistrer sur cet appareil."); }
+}
+
+function remplirSelects() {
+  const options = list => list.map(x => `<option>${echapper(x)}</option>`).join("");
+  $("mouvement").innerHTML = `<option value="">-- Choisir --</option>` + options(MOUVEMENTS);
+  $("etape").innerHTML = options(ETAPES);
+  $("filtre-mvt").innerHTML = `<option value="">Tous les mouvements</option>` + options(MOUVEMENTS);
+  $("filtre-etape").innerHTML = `<option value="">Toutes les étapes</option>` + options(ETAPES);
+}
+
+function nouveau() {
+  reinitialiserForm();
+  window.scrollTo({ top: document.getElementById("form").offsetTop - 60, behavior: "smooth" });
+  $("im").focus();
+}
+
+function reinitialiserForm() {
+  $("form").reset();
+  $("id").value = "";
+  $("etape").value = ETAPES[0];
+  $("dateEtape").value = aujourdhui();
+  $("titre-form").textContent = "Nouveau dossier";
+  $("btn-enregistrer").textContent = "Enregistrer";
+  $("btn-annuler").hidden = true;
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const data = {
+    id: $("id").value || Date.now().toString(),
+    im: $("im").value.trim(),
+    nom: $("nom").value.trim(),
+    situation: $("situation").value.trim(),
+    mouvement: $("mouvement").value,
+    nouvelle: $("nouvelle").value.trim(),
+    effet: $("effet").value,
+    etape: $("etape").value,
+    dateEtape: $("dateEtape").value,
+    ce: $("ce").value,
+    obs: $("obs").value.trim()
+  };
+  const i = dossiers.findIndex(d => d.id === data.id);
+  if (i >= 0) dossiers[i] = data; else dossiers.unshift(data);
+  sauver();
+  reinitialiserForm();
+  afficher();
+});
+
+$("btn-annuler").addEventListener("click", reinitialiserForm);
+
+function modifier(id) {
+  const d = dossiers.find(x => x.id === id);
+  if (!d) return;
+  ["im","nom","situation","mouvement","nouvelle","effet","etape","dateEtape","ce","obs"].forEach(k => $(k).value = d[k] || "");
+  $("id").value = d.id;
+  $("titre-form").textContent = "Modifier le dossier";
+  $("btn-enregistrer").textContent = "Mettre à jour";
+  $("btn-annuler").hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Passe à l'étape suivante et enregistre la date d'entrée dans cette étape
+function avancer(id) {
+  const d = dossiers.find(x => x.id === id);
+  const i = ETAPES.indexOf(d?.etape);
+  if (!d || i < 0 || i >= ETAPES.length - 1) return;
+  d.etape = ETAPES[i + 1];
+  d.dateEtape = aujourdhui();
+  sauver();
+  afficher();
+}
+
+function supprimer(id) {
+  if (!confirm("Supprimer ce dossier ?")) return;
+  dossiers = dossiers.filter(x => x.id !== id);
+  sauver();
+  afficher();
+}
+
+function filtrerParEtape(e) {
+  $("filtre-etape").value = e;
+  afficher();
+}
+
+// Une couleur par étape
+const COULEURS = {
+  "Préparation en cours": "#6d4c41",
+  "BAAF": "#1e88e5",
+  "FOP TANA": "#8e24aa",
+  "FOP VAK": "#d81b60",
+  "VISA": "#00897b",
+  "PREFET": "#f9a825",
+  "SOLD": "#43a047",
+  "CF": "#3949ab",
+  "CE": "#546e7a"
+};
+
+function afficherTableau() {
+  const toutActif = $("filtre-etape").value === "";
+  const tous = `<div class="tuile" style="background:#1f4e79;color:#fff;${toutActif ? "outline:3px solid #000;" : ""}" onclick="filtrerParEtape('')"><b>${dossiers.length}</b><span>Tous</span></div>`;
+  $("tableau").innerHTML = tous + ETAPES.map(e => {
+    const n = dossiers.filter(d => d.etape === e).length;
+    const actif = $("filtre-etape").value === e ? "outline:3px solid #000;" : "";
+    return `<div class="tuile" style="background:${COULEURS[e]};color:#fff;${actif}" onclick="filtrerParEtape('${e}')"><b>${n}</b><span>${echapper(e)}</span></div>`;
+  }).join("");
+}
+
+function afficher() {
+  const q = $("recherche").value.trim().toLowerCase();
+  const fe = $("filtre-etape").value;
+  const fm = $("filtre-mvt").value;
+  const liste = dossiers.filter(d =>
+    (!q || d.nom.toLowerCase().includes(q) || d.im.toLowerCase().includes(q)) &&
+    (!fe || d.etape === fe) &&
+    (!fm || d.mouvement === fm));
+
+  $("stat-total").textContent = dossiers.length;
+  $("stat-cours").textContent = dossiers.filter(d => d.etape !== ETAPE_FINALE).length;
+  $("stat-ce").textContent = dossiers.filter(d => d.etape === ETAPE_FINALE).length;
+  afficherTableau();
+
+  if (!liste.length) {
+    $("liste").innerHTML = `<div class="vide">Aucun dossier.</div>`;
+    return;
+  }
+  $("liste").innerHTML = liste.map(d => {
+    const fini = d.etape === ETAPE_FINALE;
+    const suivante = ETAPES[ETAPES.indexOf(d.etape) + 1];
+    return `
+    <div class="carte">
+      <div class="titre">${echapper(d.nom)} <span class="meta">· IM ${echapper(d.im)}</span></div>
+      <div class="meta">${echapper(d.situation)}${d.nouvelle ? " ➜ " + echapper(d.nouvelle) : ""}</div>
+      <span class="badge mvt">${echapper(d.mouvement)}</span>
+      <span class="badge etape">${echapper(d.etape)}</span>
+      <div class="meta">📅 Dans « ${echapper(d.etape)} » depuis : <b>${fr(d.dateEtape)}</b></div>
+      <div class="meta">${d.effet ? "Date d'effet : " + fr(d.effet) : ""} ${d.ce ? " · CE : " + fr(d.ce) : ""}</div>
+      ${d.obs ? `<div class="meta">📝 ${echapper(d.obs)}</div>` : ""}
+      <div class="actions">
+        ${fini ? "" : `<button class="ok" onclick="avancer('${d.id}')">Étape suivante ➜ ${echapper(suivante)}</button>`}
+        <button class="secondaire" onclick="modifier('${d.id}')">Modifier</button>
+        <button class="danger" onclick="supprimer('${d.id}')">Supprimer</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+["recherche","filtre-etape","filtre-mvt"].forEach(id => $(id).addEventListener("input", afficher));
+
+charger();
+remplirSelects();
+reinitialiserForm();
+afficher();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
